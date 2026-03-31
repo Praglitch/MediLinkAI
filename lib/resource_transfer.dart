@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'ai_logic.dart'; // ✅ YOUR AI FILE
+import 'ai_logic.dart';
 
 class ResourceTransfer extends StatefulWidget {
   @override
@@ -9,18 +9,15 @@ class ResourceTransfer extends StatefulWidget {
 
 class _ResourceTransferState extends State<ResourceTransfer> {
 
-  void executeTransfer(Map<String, dynamic> transfer) async {
-
+  Future<void> executeTransfer(Map<String, dynamic> transfer) async {
     try {
+      var hospitals =
+          FirebaseFirestore.instance.collection('hospitals');
 
-      var hospitals = FirebaseFirestore.instance.collection('hospitals');
-
-      // 🔍 Get source hospital
       var sourceSnap = await hospitals
           .where('name', isEqualTo: transfer['from'])
           .get();
 
-      // 🔍 Get target hospital
       var targetSnap = await hospitals
           .where('name', isEqualTo: transfer['to'])
           .get();
@@ -32,9 +29,8 @@ class _ResourceTransferState extends State<ResourceTransfer> {
 
       int amount = transfer['amount'];
 
-      // 🔥 UPDATE BOTH (REAL TRANSFER)
       await hospitals.doc(sourceDoc.id).update({
-        'beds': sourceDoc['beds'] - amount
+        'beds': (sourceDoc['beds'] - amount).clamp(0, 999)
       });
 
       await hospitals.doc(targetDoc.id).update({
@@ -46,11 +42,9 @@ class _ResourceTransferState extends State<ResourceTransfer> {
       );
 
     } catch (e) {
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("⚠️ Error: $e")),
       );
-
     }
   }
 
@@ -60,7 +54,6 @@ class _ResourceTransferState extends State<ResourceTransfer> {
     return Scaffold(
       appBar: AppBar(
         title: Text("🔄 Resource Optimization"),
-        backgroundColor: Colors.teal,
       ),
 
       body: StreamBuilder<QuerySnapshot>(
@@ -70,13 +63,25 @@ class _ResourceTransferState extends State<ResourceTransfer> {
 
         builder: (context, snapshot) {
 
-          if (!snapshot.hasData) {
+          // ⏳ Loading state
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
+          }
+
+          // ❌ No data
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Text(
+                "Scanning network...\nNo data yet",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white),
+              ),
+            );
           }
 
           final docs = snapshot.data!.docs;
 
-          // 🔥 CONVERT TO LIST
+          // 🔥 Convert Firestore → List<Map>
           List<Map<String, dynamic>> hospitalList =
               docs.map((doc) {
             return {
@@ -86,14 +91,8 @@ class _ResourceTransferState extends State<ResourceTransfer> {
             };
           }).toList();
 
-          // 🔥 YOUR AI FUNCTION
+          // 🔥 AI Logic
           var transfer = suggestTransfer(hospitalList);
-
-          if (transfer.containsKey("message")) {
-            return Center(
-              child: Text(transfer['message']),
-            );
-          }
 
           return Padding(
             padding: EdgeInsets.all(16),
@@ -102,40 +101,96 @@ class _ResourceTransferState extends State<ResourceTransfer> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
 
+                // 🔥 Header
                 Text(
-                  "⚠️ Imbalance Detected",
+                  "🔄 Smart Resource Allocation",
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.red,
                   ),
                 ),
 
                 SizedBox(height: 20),
 
-                Text("🔴 Critical: ${transfer['to']}"),
-                Text("🟢 Surplus: ${transfer['from']}"),
+                // 🟢 CASE 1: SYSTEM STABLE
+                if (transfer.containsKey("message")) ...[
 
-                SizedBox(height: 20),
-
-                Text(
-                  "🤖 AI Suggestion:",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-
-                Text(
-                  "Transfer ${transfer['amount']} beds",
-                ),
-
-                SizedBox(height: 30),
-
-                ElevatedButton(
-                  onPressed: () => executeTransfer(transfer),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color(0xFF121A2F),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "✅ ${transfer['message']}",
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          transfer['action'] ?? "",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text("Execute Transfer"),
-                ),
+
+                ] else ...[
+
+                  // 🔴 Critical hospital
+                  Text(
+                    "🔴 Critical: ${transfer['to']}",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  SizedBox(height: 8),
+
+                  // 🟢 Surplus hospital
+                  Text(
+                    "🟢 Surplus: ${transfer['from']}",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  Text(
+                    "🤖 AI Suggestion:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  SizedBox(height: 5),
+
+                  Text(
+                    "Transfer ${transfer['amount']} beds",
+                  ),
+
+                  SizedBox(height: 10),
+
+                  Text(
+                    "Impact: System balance will improve",
+                    style: TextStyle(color: Colors.green),
+                  ),
+
+                  SizedBox(height: 30),
+
+                  ElevatedButton(
+                    onPressed: () => executeTransfer(transfer),
+                    child: Text("Execute Transfer"),
+                  ),
+                ],
               ],
             ),
           );

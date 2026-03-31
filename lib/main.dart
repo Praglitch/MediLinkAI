@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'firebase_options.dart';
 import 'hospital_panel.dart';
 import 'resource_transfer.dart';
+import 'ai_logic.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,21 +18,50 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MediLinkAI',
       debugShowCheckedModeBanner: false,
+
+      // 🔥 FULL DARK THEME FIXED
+      theme: ThemeData(
+        scaffoldBackgroundColor: Color(0xFF0A0F1C),
+
+        appBarTheme: AppBarTheme(
+          backgroundColor: Color(0xFF121A2F),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF00F2FF),
+            foregroundColor: Colors.black,
+          ),
+        ),
+
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white),
+          bodySmall: TextStyle(color: Colors.white),
+
+          titleLarge: TextStyle(color: Colors.white),
+          titleMedium: TextStyle(color: Colors.white),
+          titleSmall: TextStyle(color: Colors.white),
+        ),
+      ),
+
       home: HospitalList(),
     );
   }
 }
 
 class HospitalList extends StatelessWidget {
-  HospitalList({super.key});
-
   @override
   Widget build(BuildContext context) {
 
@@ -40,9 +71,8 @@ class HospitalList extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text("🧠 MediLink AI System"),
-        backgroundColor: Colors.teal,
-        centerTitle: true,
       ),
+
       body: StreamBuilder<QuerySnapshot>(
         stream: hospitals.snapshots(),
         builder: (context, snapshot) {
@@ -52,26 +82,54 @@ class HospitalList extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("No hospital data found"));
+            return Center(
+              child: Text(
+                "Scanning network...\nNo data yet",
+                textAlign: TextAlign.center,
+              ),
+            );
           }
 
           final docs = snapshot.data!.docs;
 
-          // 🧠 AI LOGIC (best hospital = max beds)
-          var bestDoc = docs[0];
-          for (var d in docs) {
-            if (d['beds'] > bestDoc['beds']) {
-              bestDoc = d;
-            }
-          }
+          // 🔥 FIRESTORE → LIST
+          List<Map<String, dynamic>> hospitalList =
+              docs.map((doc) {
+            return {
+              "name": doc['name'],
+              "beds": doc['beds'],
+              "oxygen": doc['oxygen'],
+              "location": doc['location'],
+            };
+          }).toList();
 
-          String bestHospitalName = bestDoc['name'];
+          // 🔥 AI LOGIC
+          var best = getBestHospital(hospitalList);
+          String bestHospitalName = best['name'];
 
           return Padding(
             padding: EdgeInsets.all(12),
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+
+                // 🔥 SYSTEM STATUS HEADER
+                Container(
+                  padding: EdgeInsets.all(10),
+                  margin: EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF121A2F),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle, color: Colors.green, size: 10),
+                      SizedBox(width: 8),
+                      Text("SYSTEM ACTIVE // LIVE SYNC"),
+                    ],
+                  ),
+                ),
 
                 // 🔘 BUTTONS
                 Row(
@@ -111,7 +169,34 @@ class HospitalList extends StatelessWidget {
 
                 SizedBox(height: 15),
 
-                // 📊 SYSTEM STATUS
+                // 🤖 AI BOX
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF121A2F),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Color(0xFF00F2FF)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "🤖 AI Decision",
+                        style: TextStyle(
+                          color: Color(0xFF00F2FF),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "$bestHospitalName is optimal\nReason: Highest availability",
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 15),
+
                 Text(
                   "📊 System Status",
                   style: TextStyle(
@@ -120,28 +205,7 @@ class HospitalList extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 6),
-
-                Text("Total Hospitals: ${docs.length}"),
-
                 SizedBox(height: 10),
-
-                // 🤖 AI DECISION
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "🤖 AI Decision: Best Allocation → $bestHospitalName",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "Reason: Highest available beds and stable capacity",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-
-                SizedBox(height: 12),
 
                 // 🏥 HOSPITAL LIST
                 Expanded(
@@ -164,29 +228,57 @@ class HospitalList extends StatelessWidget {
                         statusColor = Colors.green;
                       }
 
-                      bool isBest = doc['name'] == bestHospitalName;
+                      bool isBest =
+                          doc['name'] == bestHospitalName;
 
                       return Card(
+                        color: Color(0xFF121A2F),
+
                         elevation: isBest ? 6 : 2,
+
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(12),
                           side: isBest
-                              ? BorderSide(color: Colors.green, width: 2)
+                              ? BorderSide(
+                                  color: Color(0xFF00F2FF),
+                                  width: 2)
                               : BorderSide.none,
                         ),
-                        margin: EdgeInsets.symmetric(vertical: 8),
+
+                        margin:
+                            EdgeInsets.symmetric(vertical: 8),
+
                         child: ListTile(
                           title: Text(
                             doc['name'],
                             style: TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          subtitle: Text(
-                            "📍 ${doc['location']}\nBeds: ${doc['beds']} | Oxygen: ${doc['oxygen']}",
+
+                          subtitle: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "📍 ${doc['location']}\nBeds: ${doc['beds']} | Oxygen: ${doc['oxygen']}",
+                                style: TextStyle(
+                                    color: Colors.white70),
+                              ),
+                              Text(
+                                "Last Sync: Live",
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey),
+                              ),
+                            ],
                           ),
+
                           trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
                             children: [
                               Text(
                                 status,

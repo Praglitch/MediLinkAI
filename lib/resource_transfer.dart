@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'ai_logic.dart'; // ✅ YOUR AI FILE
 
 class ResourceTransfer extends StatefulWidget {
   @override
@@ -7,96 +9,137 @@ class ResourceTransfer extends StatefulWidget {
 
 class _ResourceTransferState extends State<ResourceTransfer> {
 
-  List<Map<String, dynamic>> hospitals = [
-    {"name": "Max Hospital", "beds": 8},
-    {"name": "Fortis Hospital", "beds": 2},
-    {"name": "Apollo Hospital", "beds": 0},
-    {"name": "AIIMS", "beds": 6},
-  ];
+  void executeTransfer(Map<String, dynamic> transfer) async {
 
-  String? sourceHospital;
-  String? targetHospital;
-  int transferAmount = 2;
+    try {
 
-  void detectAndSuggest() {
+      var hospitals = FirebaseFirestore.instance.collection('hospitals');
 
-    // 🧠 find max beds (surplus)
-    var maxHospital = hospitals.reduce((a, b) =>
-        a['beds'] > b['beds'] ? a : b);
+      // 🔍 Get source hospital
+      var sourceSnap = await hospitals
+          .where('name', isEqualTo: transfer['from'])
+          .get();
 
-    // 🧠 find min beds (critical)
-    var minHospital = hospitals.reduce((a, b) =>
-        a['beds'] < b['beds'] ? a : b);
+      // 🔍 Get target hospital
+      var targetSnap = await hospitals
+          .where('name', isEqualTo: transfer['to'])
+          .get();
 
-    sourceHospital = maxHospital['name'];
-    targetHospital = minHospital['name'];
-  }
+      if (sourceSnap.docs.isEmpty || targetSnap.docs.isEmpty) return;
 
-  void executeTransfer() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "✅ Transferred $transferAmount beds from $sourceHospital → $targetHospital",
-        ),
-      ),
-    );
-  }
+      var sourceDoc = sourceSnap.docs.first;
+      var targetDoc = targetSnap.docs.first;
 
-  @override
-  void initState() {
-    super.initState();
-    detectAndSuggest();
+      int amount = transfer['amount'];
+
+      // 🔥 UPDATE BOTH (REAL TRANSFER)
+      await hospitals.doc(sourceDoc.id).update({
+        'beds': sourceDoc['beds'] - amount
+      });
+
+      await hospitals.doc(targetDoc.id).update({
+        'beds': targetDoc['beds'] + amount
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ Transfer Executed Successfully")),
+      );
+
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("⚠️ Error: $e")),
+      );
+
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
-        title: Text("🔄 Resource Allocation"),
+        title: Text("🔄 Resource Optimization"),
         backgroundColor: Colors.teal,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
 
-            Text(
-              "⚠️ System Alert: Imbalance Detected",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('hospitals')
+            .snapshots(),
+
+        builder: (context, snapshot) {
+
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snapshot.data!.docs;
+
+          // 🔥 CONVERT TO LIST
+          List<Map<String, dynamic>> hospitalList =
+              docs.map((doc) {
+            return {
+              "name": doc['name'],
+              "beds": doc['beds'],
+              "oxygen": doc['oxygen'],
+            };
+          }).toList();
+
+          // 🔥 YOUR AI FUNCTION
+          var transfer = suggestTransfer(hospitalList);
+
+          if (transfer.containsKey("message")) {
+            return Center(
+              child: Text(transfer['message']),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.all(16),
+
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                Text(
+                  "⚠️ Imbalance Detected",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+
+                SizedBox(height: 20),
+
+                Text("🔴 Critical: ${transfer['to']}"),
+                Text("🟢 Surplus: ${transfer['from']}"),
+
+                SizedBox(height: 20),
+
+                Text(
+                  "🤖 AI Suggestion:",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+
+                Text(
+                  "Transfer ${transfer['amount']} beds",
+                ),
+
+                SizedBox(height: 30),
+
+                ElevatedButton(
+                  onPressed: () => executeTransfer(transfer),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                  ),
+                  child: Text("Execute Transfer"),
+                ),
+              ],
             ),
-
-            SizedBox(height: 20),
-
-            Text("🔴 Critical: $targetHospital (lowest beds)"),
-            Text("🟢 Surplus: $sourceHospital (highest beds)"),
-
-            SizedBox(height: 20),
-
-            Text(
-              "🤖 AI Suggestion:",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            Text(
-              "Transfer $transferAmount beds from $sourceHospital → $targetHospital",
-            ),
-
-            SizedBox(height: 30),
-
-            ElevatedButton(
-              onPressed: executeTransfer,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-              ),
-              child: Text("Execute Transfer"),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

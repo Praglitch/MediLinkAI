@@ -1,97 +1,127 @@
-// 🔷 STATUS LOGIC
-String getStatus(int beds) {
-  if (beds == 0) return "CRITICAL";
-  if (beds <= 5) return "LOW";
-  return "STABLE";
-}
+class AILogic {
 
+  /// 🧠 BEST HOSPITAL SELECTION
+  static Map<String, dynamic> getBestHospital(
+      List<Map<String, dynamic>> hospitals,
+      String userQuery) {
 
-// 🔷 BEST HOSPITAL (AI DECISION ENGINE)
-Map<String, dynamic> getBestHospital(
-    List<Map<String, dynamic>> hospitals) {
+    /// ❌ EMPTY DATA SAFETY
+    if (hospitals.isEmpty) {
+      return {
+        "name": "No hospitals available",
+        "beds": 0,
+        "oxygen": 0,
+        "reason": "No data found in system"
+      };
+    }
 
-  // Remove hospitals with no beds
-  List<Map<String, dynamic>> valid =
-      hospitals.where((h) => h['beds'] > 0).toList();
+    String query = userQuery.toLowerCase();
 
-  if (valid.isEmpty) {
+    Map<String, dynamic>? best;
+    int bestScore = -1;
+
+    for (var h in hospitals) {
+
+      /// ✅ SAFE PARSING (NO CRASH)
+      int beds = h['beds'] is int
+          ? h['beds']
+          : int.tryParse(h['beds'].toString()) ?? 0;
+
+      int oxygen = h['oxygen'] is int
+          ? h['oxygen']
+          : int.tryParse(h['oxygen'].toString()) ?? 0;
+
+      /// 🎯 BASE SCORE
+      int score = beds * 2 + oxygen;
+
+      /// 🤖 SIMPLE AI BOOST
+      if (query.contains("fever")) {
+        score += beds;
+      }
+
+      if (query.contains("oxygen") || query.contains("breathing")) {
+        score += oxygen * 2;
+      }
+
+      if (query.contains("icu") || query.contains("critical")) {
+        score += beds * 2;
+      }
+
+      /// 🏆 SELECT BEST
+      if (score > bestScore) {
+        bestScore = score;
+        best = h;
+      }
+    }
+
+    /// ⚠️ FALLBACK
+    if (best == null) {
+      return {
+        "name": "No suitable hospital",
+        "beds": 0,
+        "oxygen": 0,
+        "reason": "Unable to determine best option"
+      };
+    }
+
     return {
-      "name": "No Hospital Available",
-      "reason": "All hospitals are full"
+      "name": best['name'] ?? "Unknown",
+      "beds": best['beds'] ?? 0,
+      "oxygen": best['oxygen'] ?? 0,
+      "reason":
+          "Recommended based on better availability of beds and oxygen"
     };
   }
 
-  // Sort by beds descending
-  valid.sort((a, b) => b['beds'].compareTo(a['beds']));
+  /// 🔄 RESOURCE TRANSFER LOGIC
+  static Map<String, dynamic>? getTransferSuggestion(
+      List<Map<String, dynamic>> hospitals) {
 
-  var best = valid.first;
+    if (hospitals.length < 2) return null;
 
-  return {
-    "name": best['name'],
-    "beds": best['beds'],
-    "oxygen": best['oxygen'],
-    "reason": "Highest bed availability"
-  };
-}
+    Map<String, dynamic>? rich;
+    Map<String, dynamic>? needy;
 
+    for (var h in hospitals) {
 
-// 🔷 SMART RESOURCE TRANSFER (USP 🔥)
-Map<String, dynamic> suggestTransfer(
-    List<Map<String, dynamic>> hospitals) {
+      int beds = h['beds'] is int
+          ? h['beds']
+          : int.tryParse(h['beds'].toString()) ?? 0;
 
-  if (hospitals.isEmpty) {
-    return {"message": "No data"};
-  }
+      if (rich == null || beds > (rich['beds'] ?? 0)) {
+        rich = h;
+      }
 
-  // Sort by beds ascending
-  hospitals.sort((a, b) => a['beds'].compareTo(b['beds']));
+      if (needy == null || beds < (needy['beds'] ?? 0)) {
+        needy = h;
+      }
+    }
 
-  var needy = hospitals.first;
-  var rich = hospitals.last;
+    if (rich == null || needy == null) return null;
 
-  // If system stable → no transfer
-  if (needy['beds'] >= 5) {
+    int richBeds = rich['beds'] ?? 0;
+    int needyBeds = needy['beds'] ?? 0;
+
+    if (richBeds <= needyBeds) return null;
+
+    int transferAmount = ((richBeds - needyBeds) / 2).floor();
+
+    if (transferAmount <= 0) return null;
+
     return {
-      "message": "System Stable",
-      "action": "No transfer needed"
+      "from": rich['name'],
+      "to": needy['name'],
+      "amount": transferAmount,
+      "after": needyBeds + transferAmount,
+      "reason": "Redistribution suggested to balance resources"
     };
   }
 
-  int transferAmount = (rich['beds'] / 2).floor();
-
-  return {
-    "from": rich['name'],
-    "to": needy['name'],
-    "amount": transferAmount,
-    "reason": "Balancing hospital load"
-  };
-}
-
-
-// 🔷 ALERT SYSTEM (HIGH IMPACT FEATURE)
-List<Map<String, dynamic>> getAlerts(
-    List<Map<String, dynamic>> hospitals) {
-
-  List<Map<String, dynamic>> alerts = [];
-
-  for (var h in hospitals) {
-
-    if (h['beds'] == 0) {
-      alerts.add({
-        "hospital": h['name'],
-        "type": "CRITICAL",
-        "message": "No beds available"
-      });
-    }
-
-    else if (h['beds'] <= 3) {
-      alerts.add({
-        "hospital": h['name'],
-        "type": "LOW",
-        "message": "Beds running low"
-      });
-    }
+  /// 📊 STATUS LABEL
+  static String getStatus(int beds) {
+    if (beds == 0) return "CRITICAL";
+    if (beds <= 3) return "LOW";
+    if (beds <= 7) return "MODERATE";
+    return "STABLE";
   }
-
-  return alerts;
 }

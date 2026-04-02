@@ -1,148 +1,159 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HospitalPanel extends StatefulWidget {
   @override
-  _HospitalPanelState createState() => _HospitalPanelState();
+  State<HospitalPanel> createState() => _HospitalPanelState();
 }
 
 class _HospitalPanelState extends State<HospitalPanel> {
 
-  String? selectedHospital;
-
   final TextEditingController bedsController = TextEditingController();
   final TextEditingController oxygenController = TextEditingController();
 
-  // 🧠 SAME LIST (NO CHANGE)
-  final List<String> hospitals = [
-    "Max Hospital",
-    "Fortis Hospital",
-    "Apollo Hospital",
-    "AIIMS"
-  ];
-
-  // 🔥 UPDATED FUNCTION (REAL FIREBASE)
-  void updateData() async {
-
-    if (selectedHospital == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("⚠️ Select hospital first")),
-      );
-      return;
-    }
-
-    try {
-
-      // 🔍 FIND DOCUMENT
-      var snapshot = await FirebaseFirestore.instance
-          .collection('hospitals')
-          .where('name', isEqualTo: selectedHospital)
-          .get();
-
-      if (snapshot.docs.isNotEmpty) {
-
-        var docId = snapshot.docs.first.id;
-
-        // 🔥 UPDATE DATA
-        await FirebaseFirestore.instance
-            .collection('hospitals')
-            .doc(docId)
-            .update({
-          'beds': int.tryParse(bedsController.text) ?? 0,
-          'oxygen': int.tryParse(oxygenController.text) ?? 0,
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("✅ Live Updated Successfully")),
-        );
-
-      } else {
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Hospital not found in database")),
-        );
-
-      }
-
-    } catch (e) {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("⚠️ Error: $e")),
-      );
-
-    }
-  }
+  String? selectedHospitalId;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("🏥 Hospital Panel"),
-        backgroundColor: Colors.teal,
+        title: const Text("Hospital Control Panel"),
       ),
-
       body: Padding(
-        padding: EdgeInsets.all(16),
-
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
 
-            // 🔽 DROPDOWN
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: "Select Hospital",
-              ),
-              value: selectedHospital,
-              items: hospitals.map((h) {
-                return DropdownMenuItem(
-                  value: h,
-                  child: Text(h),
-                );
-              }).toList(),
+            /// 🔴 LIVE DATA DROPDOWN
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('hospitals')
+                  .snapshots(),
+              builder: (context, snapshot) {
 
-              onChanged: (value) {
-                setState(() {
-                  selectedHospital = value;
-                });
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
+
+                final docs = snapshot.data!.docs;
+
+                return DropdownButtonFormField<String>(
+                  hint: const Text("Select Hospital"),
+                  value: selectedHospitalId,
+                  items: docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return DropdownMenuItem(
+                      value: doc.id,
+                      child: Text(data['name'] ?? "Unknown"),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      selectedHospitalId = val;
+                    });
+                  },
+                );
               },
             ),
 
-            SizedBox(height: 15),
+            const SizedBox(height: 20),
 
+            /// 🛏️ BEDS INPUT
             TextField(
               controller: bedsController,
-              decoration: InputDecoration(
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
                 labelText: "Beds Available",
                 border: OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.number,
             ),
 
-            SizedBox(height: 15),
+            const SizedBox(height: 15),
 
+            /// 🫁 OXYGEN INPUT
             TextField(
               controller: oxygenController,
-              decoration: InputDecoration(
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
                 labelText: "Oxygen Units",
                 border: OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.number,
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
+            /// 🔄 UPDATE BUTTON
             ElevatedButton(
-              onPressed: updateData,
-              child: Text("Update Resources"),
+              onPressed: () async {
+
+                if (selectedHospitalId == null) return;
+
+                int beds =
+                    int.tryParse(bedsController.text.trim()) ?? 0;
+
+                int oxygen =
+                    int.tryParse(oxygenController.text.trim()) ?? 0;
+
+                await FirebaseFirestore.instance
+                    .collection('hospitals')
+                    .doc(selectedHospitalId)
+                    .update({
+                  'beds': beds,
+                  'oxygen': oxygen,
+                  'lastUpdated': DateTime.now().toString(),
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Updated successfully"),
+                  ),
+                );
+
+                bedsController.clear();
+                oxygenController.clear();
+              },
+              child: const Text("Update Resources"),
             ),
 
-            SizedBox(height: 10),
+            const SizedBox(height: 20),
 
-            // 💎 SMALL WINNING DETAIL
-            Text(
-              "Last Sync: Live",
-              style: TextStyle(color: Colors.grey),
+            /// 📡 LIVE SYNC DISPLAY
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('hospitals')
+                    .snapshots(),
+                builder: (context, snapshot) {
+
+                  if (!snapshot.hasData) {
+                    return const Center(
+                        child: CircularProgressIndicator());
+                  }
+
+                  final docs = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+
+                      final data =
+                          docs[index].data() as Map<String, dynamic>;
+
+                      return Card(
+                        child: ListTile(
+                          title: Text(data['name'] ?? "Unknown"),
+                          subtitle: Text(
+                              "Beds: ${data['beds']} | Oxygen: ${data['oxygen']}"),
+                          trailing: Text(
+                            data['lastUpdated'] ?? "Just now",
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

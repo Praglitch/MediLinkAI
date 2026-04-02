@@ -1,200 +1,151 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'ai_logic.dart';
 
-class ResourceTransfer extends StatefulWidget {
-  @override
-  _ResourceTransferState createState() => _ResourceTransferState();
-}
-
-class _ResourceTransferState extends State<ResourceTransfer> {
-
-  Future<void> executeTransfer(Map<String, dynamic> transfer) async {
-    try {
-      var hospitals =
-          FirebaseFirestore.instance.collection('hospitals');
-
-      var sourceSnap = await hospitals
-          .where('name', isEqualTo: transfer['from'])
-          .get();
-
-      var targetSnap = await hospitals
-          .where('name', isEqualTo: transfer['to'])
-          .get();
-
-      if (sourceSnap.docs.isEmpty || targetSnap.docs.isEmpty) return;
-
-      var sourceDoc = sourceSnap.docs.first;
-      var targetDoc = targetSnap.docs.first;
-
-      int amount = transfer['amount'];
-
-      await hospitals.doc(sourceDoc.id).update({
-        'beds': (sourceDoc['beds'] - amount).clamp(0, 999)
-      });
-
-      await hospitals.doc(targetDoc.id).update({
-        'beds': targetDoc['beds'] + amount
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ Transfer Executed Successfully")),
-      );
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("⚠️ Error: $e")),
-      );
-    }
-  }
+class ResourceTransfer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
-        title: Text("🔄 Resource Optimization"),
+        title: const Text("AI Resource Optimization"),
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('hospitals')
+              .snapshots(),
+          builder: (context, snapshot) {
 
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('hospitals')
-            .snapshots(),
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        builder: (context, snapshot) {
+            final docs = snapshot.data!.docs;
 
-          // ⏳ Loading state
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+            /// 🔄 CONVERT DATA SAFELY
+            List<Map<String, dynamic>> hospitals = docs.map((d) {
+              return {
+                "id": d.id,
+                ...d.data() as Map<String, dynamic>,
+              };
+            }).toList();
 
-          // ❌ No data
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Text(
-                "Scanning network...\nNo data yet",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white),
-              ),
-            );
-          }
+            /// 🤖 AI SUGGESTION
+            final suggestion =
+                AILogic.getTransferSuggestion(hospitals);
 
-          final docs = snapshot.data!.docs;
+            if (suggestion == null) {
+              return const Center(
+                child: Text("System Balanced ✅"),
+              );
+            }
 
-          // 🔥 Convert Firestore → List<Map>
-          List<Map<String, dynamic>> hospitalList =
-              docs.map((doc) {
-            return {
-              "name": doc['name'],
-              "beds": doc['beds'],
-              "oxygen": doc['oxygen'],
-            };
-          }).toList();
-
-          // 🔥 AI Logic
-          var transfer = suggestTransfer(hospitalList);
-
-          return Padding(
-            padding: EdgeInsets.all(16),
-
-            child: Column(
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
 
-                // 🔥 Header
-                Text(
-                  "🔄 Smart Resource Allocation",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                /// ⚠️ ALERT
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    "⚠️ Resource Imbalance Detected",
+                    style: TextStyle(color: Colors.redAccent),
                   ),
                 ),
 
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-                // 🟢 CASE 1: SYSTEM STABLE
-                if (transfer.containsKey("message")) ...[
+                /// 📊 DETAILS
+                Text(
+                  "From: ${suggestion['from']}",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                Text(
+                  "To: ${suggestion['to']}",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                Text(
+                  "Transfer: ${suggestion['amount']} beds",
+                  style: const TextStyle(fontSize: 16),
+                ),
 
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Color(0xFF121A2F),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "✅ ${transfer['message']}",
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
+                const SizedBox(height: 10),
+
+                Text(
+                  "AI Insight: ${suggestion['reason']}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+
+                const SizedBox(height: 20),
+
+                /// 🚀 EXECUTE BUTTON
+                ElevatedButton(
+                  onPressed: () async {
+
+                    try {
+
+                      final fromDoc = docs.firstWhere(
+                        (d) =>
+                            (d.data() as Map)['name'] ==
+                            suggestion['from'],
+                      );
+
+                      final toDoc = docs.firstWhere(
+                        (d) =>
+                            (d.data() as Map)['name'] ==
+                            suggestion['to'],
+                      );
+
+                      int amount = suggestion['amount'];
+
+                      int fromBeds =
+                          (fromDoc['beds'] ?? 0) as int;
+
+                      int toBeds =
+                          (toDoc['beds'] ?? 0) as int;
+
+                      /// 🔄 UPDATE FIRESTORE
+                      await FirebaseFirestore.instance
+                          .collection('hospitals')
+                          .doc(fromDoc.id)
+                          .update({
+                        'beds': fromBeds - amount,
+                      });
+
+                      await FirebaseFirestore.instance
+                          .collection('hospitals')
+                          .doc(toDoc.id)
+                          .update({
+                        'beds': toBeds + amount,
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Transfer Completed ✅"),
                         ),
-                        SizedBox(height: 5),
-                        Text(
-                          transfer['action'] ?? "",
-                          style: TextStyle(color: Colors.white70),
+                      );
+
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Error: $e"),
                         ),
-                      ],
-                    ),
-                  ),
-
-                ] else ...[
-
-                  // 🔴 Critical hospital
-                  Text(
-                    "🔴 Critical: ${transfer['to']}",
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 8),
-
-                  // 🟢 Surplus hospital
-                  Text(
-                    "🟢 Surplus: ${transfer['from']}",
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 20),
-
-                  Text(
-                    "🤖 AI Suggestion:",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 5),
-
-                  Text(
-                    "Transfer ${transfer['amount']} beds",
-                  ),
-
-                  SizedBox(height: 10),
-
-                  Text(
-                    "Impact: System balance will improve",
-                    style: TextStyle(color: Colors.green),
-                  ),
-
-                  SizedBox(height: 30),
-
-                  ElevatedButton(
-                    onPressed: () => executeTransfer(transfer),
-                    child: Text("Execute Transfer"),
-                  ),
-                ],
+                      );
+                    }
+                  },
+                  child: const Text("Execute Transfer"),
+                ),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

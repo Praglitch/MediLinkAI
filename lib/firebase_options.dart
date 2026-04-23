@@ -21,20 +21,11 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
@@ -51,7 +42,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyALuYI4UVj3ZKzNQj8cAxhkBraIsZJ72Mg',
-    appId: '1:343177205461:web:fbce933431c210f2e0345c',
+    appId: '1:343177205461:web:f34761596e516e06e0345c',
     messagingSenderId: '343177205461',
     projectId: 'medilinkai-3280e',
     authDomain: 'medilinkai-3280e.firebaseapp.com',
@@ -60,10 +51,37 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyALuYI4UVj3ZKzNQj8cAxhkBraIsZJ72Mg',
-    appId: '1:343177205461:web:f34761596e516e06e0345c',
+    appId: '1:343177205461:web:d8eeb12c3b5c06b7e0345c',
     messagingSenderId: '343177205461',
     projectId: 'medilinkai-3280e',
     authDomain: 'medilinkai-3280e.firebaseapp.com',
     storageBucket: 'medilinkai-3280e.firebasestorage.app',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyCfM3uxy9T_HQ2mmB4XTvcGQeaBWCWQGd0',
+    appId: '1:343177205461:ios:b41996b565fe261fe0345c',
+    messagingSenderId: '343177205461',
+    projectId: 'medilinkai-3280e',
+    storageBucket: 'medilinkai-3280e.firebasestorage.app',
+    iosBundleId: 'com.example.myapp',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCfM3uxy9T_HQ2mmB4XTvcGQeaBWCWQGd0',
+    appId: '1:343177205461:ios:b41996b565fe261fe0345c',
+    messagingSenderId: '343177205461',
+    projectId: 'medilinkai-3280e',
+    storageBucket: 'medilinkai-3280e.firebasestorage.app',
+    iosBundleId: 'com.example.myapp',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAaLEWumYd6PwW52_pqIYQi6V-alPSZQF4',
+    appId: '1:343177205461:android:3c55f9b84541952be0345c',
+    messagingSenderId: '343177205461',
+    projectId: 'medilinkai-3280e',
+    storageBucket: 'medilinkai-3280e.firebasestorage.app',
+  );
+
 }

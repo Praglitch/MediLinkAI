@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "343177205461",
+    "project_id": "medilinkai-3280e",
+    "storage_bucket": "medilinkai-3280e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343177205461:android:3c55f9b84541952be0345c",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaLEWumYd6PwW52_pqIYQi6V-alPSZQF4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

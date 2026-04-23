@@ -34,6 +34,28 @@ class AIService {
         generationConfig: GenerationConfig(
           responseMimeType: 'application/json',
           temperature: 0.3,
+          responseSchema: Schema.object(
+            properties: {
+              'summary': Schema.string(),
+              'rankings': Schema.array(
+                items: Schema.object(
+                  properties: {
+                    'hospitalId': Schema.string(),
+                    'hospitalName': Schema.string(),
+                    'score': Schema.integer(),
+                    'reasoning': Schema.string(),
+                    'factors': Schema.object(
+                      properties: {
+                        'resourceMatch': Schema.integer(),
+                        'bufferTime': Schema.integer(),
+                        'specialtyFit': Schema.integer(),
+                      },
+                    ),
+                  },
+                ),
+              ),
+            },
+          ),
         ),
       );
 

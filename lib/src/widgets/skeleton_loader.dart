@@ -17,10 +17,12 @@ class SkeletonLoader extends StatelessWidget {
       highlightColor: AppColors.panel,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero card skeleton
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hero card skeleton
             Container(
               height: 160,
               decoration: BoxDecoration(
@@ -55,6 +57,7 @@ class SkeletonLoader extends StatelessWidget {
               ),
             )),
           ],
+        ),
         ),
       ),
     );

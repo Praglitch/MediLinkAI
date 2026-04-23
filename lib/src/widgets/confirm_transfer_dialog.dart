@@ -92,6 +92,33 @@ class ConfirmTransferDialog extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.info.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.info.withOpacity(0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.gavel_rounded, size: 14, color: AppColors.info),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Executing this action automatically drafts a Digital Loan Agreement '
+                    'between facilities for auditing and regional liability compliance.',
+                    style: TextStyle(
+                      color: AppColors.info,
+                      fontSize: 10,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
       actions: [

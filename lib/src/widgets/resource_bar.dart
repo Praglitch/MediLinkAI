@@ -46,7 +46,7 @@ class ResourceBar extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            color: AppColors.border.withOpacity(0.2),
+            color: AppColors.border.withValues(alpha: 0.2),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
@@ -60,7 +60,7 @@ class ResourceBar extends StatelessWidget {
                   value: value,
                   backgroundColor: Colors.transparent,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    color.withOpacity(0.8),
+                    color.withValues(alpha: 0.8),
                   ),
                 );
               },

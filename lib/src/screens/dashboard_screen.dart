@@ -134,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               Icons.cloud_off,
-              color: AppColors.danger.withOpacity(0.5),
+              color: AppColors.danger.withValues(alpha: 0.5),
               size: 48,
             ),
             const SizedBox(height: 16),
@@ -148,13 +148,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Unable to connect to the community care network. Please check your connection and try again.',
+              error,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.accent,
                 fontSize: 13,
                 height: 1.5,
               ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                context.read<AppState>().enableMockMode();
+              },
+              child: const Text('Fallback to Mock Data'),
             ),
           ],
         ),

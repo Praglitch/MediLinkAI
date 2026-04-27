@@ -34,14 +34,14 @@ class NetworkHealthScore extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            _color.withOpacity(0.12),
-            _color.withOpacity(0.05),
+            _color.withValues(alpha: 0.12),
+            _color.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        border: Border.all(color: _color.withOpacity(0.25)),
+        border: Border.all(color: _color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -58,7 +58,7 @@ class NetworkHealthScore extends StatelessWidget {
                   child: CircularProgressIndicator(
                     value: score / 100,
                     strokeWidth: 5,
-                    backgroundColor: _color.withOpacity(0.15),
+                    backgroundColor: _color.withValues(alpha: 0.15),
                     valueColor: AlwaysStoppedAnimation(_color),
                   ),
                 ),
@@ -95,7 +95,7 @@ class NetworkHealthScore extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: _color.withOpacity(0.16),
+                        color: _color.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

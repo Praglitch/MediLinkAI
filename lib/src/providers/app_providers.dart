@@ -117,6 +117,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        if (isMockMode) return;
         error = 'Failed to load hospitals: $e';
         isLoading = false;
         notifyListeners();
@@ -154,6 +155,9 @@ class AppState extends ChangeNotifier {
     isMockMode = true;
     isLoading = false;
     error = null;
+    _hospitalSub?.cancel();
+    _ambulanceSub?.cancel();
+    _auditSub?.cancel();
     _refreshPlan();
     notifyListeners();
   }

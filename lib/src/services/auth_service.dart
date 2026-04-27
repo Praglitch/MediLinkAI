@@ -1,41 +1,47 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Thin wrapper around Firebase Auth for the MediLink auth gate.
+/// Authentication service wrapping Firebase Auth.
 class AuthService {
   AuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseAuth _auth;
 
   User? get currentUser => _auth.currentUser;
-  bool get isSignedIn => currentUser != null;
-  String get userId => currentUser?.uid ?? 'anonymous';
+  bool get isSignedIn => _auth.currentUser != null;
+  String get userId => _auth.currentUser?.uid ?? 'anonymous';
   String get displayName =>
-      currentUser?.displayName ?? currentUser?.email ?? 'User';
+      _auth.currentUser?.displayName ?? _auth.currentUser?.email ?? 'User';
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  /// Sign in anonymously — minimum friction for demo / hackathon.
-  Future<User?> signInAnonymously() async {
-    final credential = await _auth.signInAnonymously();
-    return credential.user;
+  Future<UserCredential?> signInAnonymously() async {
+    try {
+      return await _auth.signInAnonymously();
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  /// Sign in with email/password for admin access.
-  Future<User?> signInWithEmail(String email, String password) async {
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return credential.user;
+  Future<UserCredential?> signInWithEmail(String email, String password) async {
+    try {
+      return await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  /// Register a new admin account.
-  Future<User?> registerWithEmail(String email, String password) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return credential.user;
+  Future<UserCredential?> registerWithEmail(String email, String password) async {
+    try {
+      return await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {

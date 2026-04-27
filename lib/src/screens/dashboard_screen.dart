@@ -134,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               Icons.cloud_off,
-              color: AppColors.danger.withValues(alpha: 0.5),
+              color: AppColors.danger.withOpacity(0.5),
               size: 48,
             ),
             const SizedBox(height: 16),
@@ -155,13 +155,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 fontSize: 13,
                 height: 1.5,
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                context.read<AppState>().enableMockMode();
-              },
-              child: const Text('Fallback to Mock Data'),
             ),
           ],
         ),

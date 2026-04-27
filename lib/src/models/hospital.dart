@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/constants.dart';
@@ -228,13 +227,13 @@ class Hospital {
     );
   }
 
-  factory Hospital.fromFirestore(DocumentSnapshot snapshot) {
-    final data = snapshot.data() as Map<String, dynamic>? ?? {};
+  factory Hospital.fromFirestore(dynamic snapshot) {
+    final data = (snapshot is Map ? snapshot : snapshot.data()) as Map<String, dynamic>? ?? {};
 
     DateTime? lastUpdated;
     final rawUpdated = data['lastUpdated'];
-    if (rawUpdated is Timestamp) {
-      lastUpdated = rawUpdated.toDate();
+    if (rawUpdated is DateTime) {
+      lastUpdated = rawUpdated;
     } else if (rawUpdated is String) {
       lastUpdated = DateTime.tryParse(rawUpdated);
     }
@@ -292,7 +291,7 @@ class Hospital {
       'nodeType': nodeType,
       'city': city,
       'tier': tier,
-      'lastUpdated': FieldValue.serverTimestamp(),
+      'lastUpdated': DateTime.now(),
     };
   }
 

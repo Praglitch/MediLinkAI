@@ -42,6 +42,7 @@ class _AuthScreenState extends State<AuthScreen> {
       await _authService.signInAnonymously();
       if (mounted) widget.onAuthenticated();
     } catch (e) {
+      print('AuthScreen Error (Anonymous): $e');
       String msg = e.toString();
       if (msg.contains('configuration-not-found')) {
         msg = 'Anonymous Auth not enabled in Firebase. Use Demo Mode below.';
@@ -77,11 +78,13 @@ class _AuthScreenState extends State<AuthScreen> {
       await _authService.signInWithEmail(email, password);
       if (mounted) widget.onAuthenticated();
     } catch (e) {
+      print('AuthScreen Error (Email SignIn): $e');
       // Try registering if sign-in fails
       try {
         await _authService.registerWithEmail(email, password);
         if (mounted) widget.onAuthenticated();
       } catch (e2) {
+        print('AuthScreen Error (Email Register): $e2');
         setState(() => _error = 'Authentication failed. Check credentials.');
       }
     } finally {

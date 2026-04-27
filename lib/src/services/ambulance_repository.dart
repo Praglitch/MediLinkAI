@@ -1,43 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/ambulance.dart';
 
-/// Real-time ambulance tracking repository for shadow-load calculations.
+/// Production Ambulance repository using Cloud Firestore.
 class AmbulanceRepository {
   AmbulanceRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('ambulances');
-
-  /// Stream only active (en-route) ambulances.
   Stream<List<Ambulance>> watchActiveAmbulances() {
-    return _collection
+    return _firestore
+        .collection('ambulances')
         .where('status', isEqualTo: 'enRoute')
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map(Ambulance.fromFirestore)
-          .toList(growable: false);
-    });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Ambulance.fromFirestore(doc))
+            .toList());
   }
 
-  /// Stream all ambulances heading to a specific hospital.
   Stream<List<Ambulance>> watchAmbulancesForHospital(String hospitalId) {
-    return _collection
+    return _firestore
+        .collection('ambulances')
         .where('toHospitalId', isEqualTo: hospitalId)
-        .where('status', isEqualTo: 'enRoute')
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map(Ambulance.fromFirestore)
-          .toList(growable: false);
-    });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Ambulance.fromFirestore(doc))
+            .toList());
   }
 
-  /// Dispatch a new ambulance (for demo / simulation).
   Future<void> dispatchAmbulance({
     required String fromHospitalId,
     required String fromHospitalName,
@@ -46,22 +36,23 @@ class AmbulanceRepository {
     required PatientType patientType,
     required int etaMinutes,
   }) async {
-    await _collection.add({
+    final eta = DateTime.now().add(Duration(minutes: etaMinutes));
+    await _firestore.collection('ambulances').add({
       'fromHospitalId': fromHospitalId,
       'fromHospitalName': fromHospitalName,
       'toHospitalId': toHospitalId,
       'toHospitalName': toHospitalName,
       'patientType': patientType.name,
-      'eta': Timestamp.fromDate(
-        DateTime.now().add(Duration(minutes: etaMinutes)),
-      ),
+      'eta': eta,
       'status': 'enRoute',
       'dispatchedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  /// Mark an ambulance as arrived.
   Future<void> markArrived(String ambulanceId) async {
-    await _collection.doc(ambulanceId).update({'status': 'arrived'});
+    await _firestore.collection('ambulances').doc(ambulanceId).update({
+      'status': 'arrived',
+      'arrivedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

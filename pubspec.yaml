@@ -12,9 +12,6 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  firebase_core: ^4.6.0
-  cloud_firestore: ^6.2.0
-  firebase_auth: ^6.3.0
   google_generative_ai: ^0.4.6
   provider: ^6.1.2
   shimmer: ^3.0.0
@@ -22,6 +19,9 @@ dependencies:
   csv: ^6.0.0
   path_provider: ^2.1.4
   share_plus: ^10.1.4
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  cloud_firestore: ^6.3.0
 
 dev_dependencies:
   flutter_test:

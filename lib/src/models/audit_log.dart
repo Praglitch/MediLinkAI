@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Immutable record of a resource transfer for full audit trail.
 class AuditLog {
   final String id;
@@ -34,12 +32,12 @@ class AuditLog {
     required this.timestamp,
   });
 
-  factory AuditLog.fromFirestore(DocumentSnapshot snapshot) {
-    final data = snapshot.data() as Map<String, dynamic>? ?? {};
+  factory AuditLog.fromFirestore(dynamic snapshot) {
+    final data = (snapshot is Map ? snapshot : snapshot.data()) as Map<String, dynamic>? ?? {};
     final rawTs = data['timestamp'];
     DateTime ts = DateTime.now();
-    if (rawTs is Timestamp) {
-      ts = rawTs.toDate();
+    if (rawTs is DateTime) {
+      ts = rawTs;
     } else if (rawTs is String) {
       ts = DateTime.tryParse(rawTs) ?? DateTime.now();
     }
@@ -76,7 +74,7 @@ class AuditLog {
       'fromAfter': fromAfter,
       'toBefore': toBefore,
       'toAfter': toAfter,
-      'timestamp': FieldValue.serverTimestamp(),
+      'timestamp': DateTime.now(),
     };
   }
 

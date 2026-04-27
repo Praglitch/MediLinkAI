@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'src/providers/app_providers.dart';
 import 'src/screens/auth_screen.dart';
@@ -12,9 +12,11 @@ import 'src/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(const MediLinkApp());
 }
 
@@ -24,7 +26,7 @@ class MediLinkApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppState(),
+      create: (_) => AppState()..isMockMode = false,
       child: MaterialApp(
         title: 'MediLink AI',
         debugShowCheckedModeBanner: false,
@@ -57,7 +59,7 @@ class _AppGateState extends State<_AppGate> {
     final authService = AuthService();
     final isMockMode = context.watch<AppState>().isMockMode;
 
-    return StreamBuilder(
+    return StreamBuilder<User?>(
       stream: authService.authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {

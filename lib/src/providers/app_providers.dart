@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/ai_recommendation.dart';
 import '../models/ambulance.dart';
@@ -44,6 +45,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<List<Hospital>>? _hospitalSub;
   StreamSubscription<List<Ambulance>>? _ambulanceSub;
   StreamSubscription<List<AuditLog>>? _auditSub;
+  StreamSubscription<User?>? _authSub;
 
   // ── Live data ──────────────────────────────────────────────────────
 
@@ -108,6 +110,23 @@ class AppState extends ChangeNotifier {
   // ── Initialisation ─────────────────────────────────────────────────
 
   void _init() {
+    // Listen for auth changes to reset streams
+    _authSub = authService.authStateChanges.listen((user) {
+      if (user != null) {
+        print('AppState: User detected (${user.uid}), resetting data streams...');
+        _startDataStreams();
+      }
+    });
+
+    // Initial start (will fail if not logged in, but _authSub will fix it later)
+    _startDataStreams();
+  }
+
+  void _startDataStreams() {
+    _hospitalSub?.cancel();
+    _ambulanceSub?.cancel();
+    _auditSub?.cancel();
+
     _hospitalSub = _hospitalRepo.watchHospitals().listen(
       (data) {
         hospitals = data;
@@ -117,8 +136,10 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        if (isMockMode) return;
-        error = 'Failed to load hospitals: $e';
+        // Only show error if we aren't in mock mode and actually logged in
+        if (!isMockMode && authService.isSignedIn) {
+          error = 'Failed to load hospitals: $e';
+        }
         isLoading = false;
         notifyListeners();
       },
@@ -130,9 +151,7 @@ class AppState extends ChangeNotifier {
         _refreshPlan();
         notifyListeners();
       },
-      onError: (_) {
-        // Ambulance stream failure is non-critical
-      },
+      onError: (_) {},
     );
 
     _auditSub = _auditRepo.watchAuditLog().listen(
@@ -155,9 +174,6 @@ class AppState extends ChangeNotifier {
     isMockMode = true;
     isLoading = false;
     error = null;
-    _hospitalSub?.cancel();
-    _ambulanceSub?.cancel();
-    _auditSub?.cancel();
     _refreshPlan();
     notifyListeners();
   }
@@ -311,6 +327,7 @@ class AppState extends ChangeNotifier {
     _hospitalSub?.cancel();
     _ambulanceSub?.cancel();
     _auditSub?.cancel();
+    _authSub?.cancel();
     super.dispose();
   }
 }

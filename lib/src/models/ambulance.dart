@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Real-time ambulance status for shadow-load prediction.
 enum AmbulanceStatus { enRoute, arrived, cancelled }
 
@@ -54,11 +52,11 @@ class Ambulance {
     }
   }
 
-  factory Ambulance.fromFirestore(DocumentSnapshot snapshot) {
-    final data = snapshot.data() as Map<String, dynamic>? ?? {};
+  factory Ambulance.fromFirestore(dynamic snapshot) {
+    final data = (snapshot is Map ? snapshot : snapshot.data()) as Map<String, dynamic>? ?? {};
 
     return Ambulance(
-      id: snapshot.id,
+      id: snapshot is Map ? (data['id'] ?? '') : snapshot.id,
       fromHospitalId: data['fromHospitalId'] as String? ?? '',
       fromHospitalName: data['fromHospitalName'] as String? ?? '',
       toHospitalId: data['toHospitalId'] as String? ?? '',
@@ -95,7 +93,7 @@ class Ambulance {
   }
 
   static DateTime _parseDateTime(dynamic value) {
-    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
     return DateTime.now();
   }

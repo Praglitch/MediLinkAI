@@ -23,6 +23,9 @@ class Hospital {
   final double ventilatorConsumptionRate;
   final double? latitude;
   final double? longitude;
+  final String nodeType; // 'hospital', 'ngo', 'community_hub'
+  final String city;
+  final String tier; // 'LARGE', 'MEDIUM', 'SMALL'
   final DateTime? lastUpdated;
 
   const Hospital({
@@ -40,6 +43,9 @@ class Hospital {
     this.ventilatorConsumptionRate = AppConstants.defaultVentilatorConsumptionRate,
     this.latitude,
     this.longitude,
+    this.nodeType = 'hospital',
+    this.city = 'Bengaluru',
+    this.tier = 'MEDIUM',
     this.lastUpdated,
   });
 
@@ -193,6 +199,9 @@ class Hospital {
     double? ventilatorConsumptionRate,
     double? latitude,
     double? longitude,
+    String? nodeType,
+    String? city,
+    String? tier,
     DateTime? lastUpdated,
   }) {
     return Hospital(
@@ -212,6 +221,9 @@ class Hospital {
           ventilatorConsumptionRate ?? this.ventilatorConsumptionRate,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      nodeType: nodeType ?? this.nodeType,
+      city: city ?? this.city,
+      tier: tier ?? this.tier,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
@@ -254,6 +266,9 @@ class Hospital {
       ),
       latitude: _parseNullableDouble(data['latitude']),
       longitude: _parseNullableDouble(data['longitude']),
+      nodeType: data['nodeType'] as String? ?? 'hospital',
+      city: data['city'] as String? ?? 'Bengaluru',
+      tier: data['tier'] as String? ?? 'MEDIUM',
       lastUpdated: lastUpdated,
     );
   }
@@ -274,6 +289,9 @@ class Hospital {
       'ventilatorConsumptionRate': ventilatorConsumptionRate,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
+      'nodeType': nodeType,
+      'city': city,
+      'tier': tier,
       'lastUpdated': FieldValue.serverTimestamp(),
     };
   }

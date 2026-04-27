@@ -608,7 +608,7 @@ class ResourceTransferScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           const Text(
-            'All hospitals are balanced',
+            'All community nodes are balanced',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -617,7 +617,7 @@ class ResourceTransferScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const Text(
-            'No transfer is required right now. All hospitals maintain adequate reserves above safety thresholds. Continue monitoring live resource levels.',
+            'No transfer is required right now. All nodes maintain adequate reserves above safety thresholds. Continue monitoring live resource levels.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color(0xFF9CA3AF),

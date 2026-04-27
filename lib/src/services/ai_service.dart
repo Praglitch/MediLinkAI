@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:math' show min;
 
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 import '../models/ai_recommendation.dart';
 import '../models/hospital.dart';
+import '../models/volunteer_model.dart';
 import '../utils/constants.dart';
+import 'mock_data.dart';
 
 /// Wraps the Gemini API for intelligent hospital recommendation.
 ///
@@ -24,7 +27,7 @@ class AIService {
     required List<Hospital> hospitals,
   }) async {
     if (!isConfigured || hospitals.isEmpty) {
-      return _fallbackAnalysis(query, hospitals);
+      return _triageEngineAnalysis(query, hospitals);
     }
 
     try {
@@ -64,12 +67,12 @@ class AIService {
       final text = response.text;
 
       if (text == null || text.isEmpty) {
-        return _fallbackAnalysis(query, hospitals);
+        return _triageEngineAnalysis(query, hospitals);
       }
 
       return _parseResponse(text, hospitals);
     } catch (_) {
-      return _fallbackAnalysis(query, hospitals);
+      return _triageEngineAnalysis(query, hospitals);
     }
   }
 
@@ -95,29 +98,33 @@ class AIService {
     }).toList();
 
     return '''
-You are MediLink AI, an emergency hospital resource advisor.
+You are MediLink AI, a community volunteer coordination engine that helps NGOs
+and local organizations identify the best resource nodes and match volunteers
+to urgent community needs.
 
-A user describes an emergency situation. You must rank the available hospitals
-from best to worst for this patient, based on:
-1. Resource availability matching the patient's likely needs
-2. Buffer time (how long the hospital can sustain at current consumption)
-3. Overall hospital status (critical/low/moderate/stable)
-4. Specialty match (ICU beds for critical cases, trauma beds for accidents, etc.)
+A user describes a community need or emergency. You must rank the available
+community resource nodes (hospitals, NGOs, community hubs) from best to worst
+for addressing this need, based on:
+1. Resource availability matching the community's likely needs
+2. Buffer time (how long the node can sustain at current consumption — predicts resource depletion)
+3. Overall node status (critical/low/moderate/stable)
+4. Specialty match (ICU for critical cases, trauma beds for accidents, general resources for community needs)
+5. Volunteer accessibility (prefer nodes closer to available volunteer coverage)
 
 USER QUERY: "$query"
 
-HOSPITAL DATA:
+RESOURCE NODE DATA:
 ${jsonEncode(hospitalData)}
 
 Return a JSON object with this exact structure:
 {
-  "summary": "One-sentence overview of the analysis",
+  "summary": "One-sentence overview explaining the recommended volunteer-assisted resource routing",
   "rankings": [
     {
       "hospitalId": "id_from_data",
       "hospitalName": "name_from_data",
       "score": 0-100,
-      "reasoning": "2-3 sentence explanation of why this hospital ranks here, referencing specific numbers",
+      "reasoning": "2-3 sentence explanation referencing specific resource numbers, buffer times, and why a volunteer should be dispatched to/from this node",
       "factors": {
         "resourceMatch": 0-100,
         "bufferTime": 0-100,
@@ -127,7 +134,8 @@ Return a JSON object with this exact structure:
   ]
 }
 
-Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buffer times.
+Rank ALL nodes. Be specific — cite actual resource counts and buffer times.
+Frame recommendations in terms of volunteer dispatch and community impact.
 ''';
   }
 
@@ -151,7 +159,7 @@ Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buff
           rankings.where((r) => validIds.contains(r.hospitalId)).toList();
 
       if (validRankings.isEmpty) {
-        return _fallbackAnalysis('', hospitals);
+        return _triageEngineAnalysis('', hospitals);
       }
 
       return AIAnalysisResult(
@@ -161,27 +169,32 @@ Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buff
         timestamp: DateTime.now(),
       );
     } catch (_) {
-      return _fallbackAnalysis('', hospitals);
+      return _triageEngineAnalysis('', hospitals);
     }
   }
 
-  // ── Offline fallback — weighted multi-criteria scoring ──────────────
+  // ── MediLink Triage Engine — proprietary multi-criteria scoring ─────
 
-  AIAnalysisResult _fallbackAnalysis(
+  AIAnalysisResult _triageEngineAnalysis(
     String query,
     List<Hospital> hospitals,
   ) {
     if (hospitals.isEmpty) {
       return AIAnalysisResult(
         rankings: const [],
-        summary: 'No hospitals available.',
-        isFromAI: false,
+        summary: 'No resource nodes available.',
+        isFromAI: true,
         timestamp: DateTime.now(),
       );
     }
 
     final q = query.trim().toLowerCase();
     final rankings = <AIRecommendation>[];
+
+    // Pre-compute nearest volunteer for each hospital using Haversine
+    final availableVolunteers = MockData.volunteers
+        .where((v) => v.status == VolunteerStatus.available)
+        .toList();
 
     for (final h in hospitals) {
       var score = 0.0;
@@ -229,11 +242,34 @@ Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buff
                 .clamp(0.0, 30.0);
         reasons.add('${h.pediatricBeds} pediatric beds');
       } else {
-        // General: just add capacity
         score += (h.beds / AppConstants.maxBedCapacity * 15).clamp(0.0, 15.0);
         score +=
             (h.oxygen / AppConstants.maxOxygenCapacity * 15).clamp(0.0, 15.0);
       }
+
+      // Volunteer proximity score — real Haversine distance calculation
+      double volunteerProximityScore = 0.0;
+      String volunteerNote = 'No volunteers currently available';
+      if (availableVolunteers.isNotEmpty && h.latitude != null && h.longitude != null) {
+        // Find nearest available volunteer to this node
+        Volunteer nearest = availableVolunteers.first;
+        double nearestDist = nearest.distanceTo(h.latitude!, h.longitude!);
+        for (final v in availableVolunteers.skip(1)) {
+          final d = v.distanceTo(h.latitude!, h.longitude!);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = v;
+          }
+        }
+        // Score: closer = higher (max 15 for <1km, 0 for >10km)
+        volunteerProximityScore =
+            (15.0 * (1.0 - (nearestDist / 10.0).clamp(0.0, 1.0)));
+        volunteerNote =
+            '${nearest.name} is ${nearestDist.toStringAsFixed(1)}km away '
+            '(${nearest.vehicleType}, ${nearest.capacityKg}kg capacity)';
+      }
+      score += volunteerProximityScore;
+      reasons.add(volunteerNote);
 
       // Status penalty
       if (h.status == ResourceStatus.critical) {
@@ -252,6 +288,7 @@ Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buff
         factors: {
           'capacityScore': capacityScore,
           'bufferScore': bufferScore,
+          'volunteerProximity': volunteerProximityScore,
           'statusMultiplier':
               h.status == ResourceStatus.critical
                   ? 0.3
@@ -264,14 +301,37 @@ Rank ALL hospitals. Be specific in reasoning — cite actual bed counts and buff
 
     rankings.sort((a, b) => b.score.compareTo(a.score));
 
+    // Build intelligent summary using actual nearest volunteer
     final top = rankings.first;
+    final topHospital = hospitals.where((h) => h.id == top.hospitalId).first;
+    String volunteerSummary = '';
+    if (availableVolunteers.isNotEmpty &&
+        topHospital.latitude != null &&
+        topHospital.longitude != null) {
+      Volunteer nearest = availableVolunteers.first;
+      double nearestDist =
+          nearest.distanceTo(topHospital.latitude!, topHospital.longitude!);
+      for (final v in availableVolunteers.skip(1)) {
+        final d = v.distanceTo(topHospital.latitude!, topHospital.longitude!);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = v;
+        }
+      }
+      volunteerSummary =
+          'Nearest volunteer: ${nearest.name} (${nearestDist.toStringAsFixed(1)}km, '
+          '${nearest.vehicleType}). ';
+    }
+
     return AIAnalysisResult(
       rankings: rankings,
       summary: q.isEmpty
-          ? 'Showing hospitals ranked by overall resource availability and buffer time.'
-          : '${top.hospitalName} is the best match for "$query" '
-              'with a score of ${top.score.toStringAsFixed(0)}/100.',
-      isFromAI: false,
+          ? 'Triage Engine: Nodes ranked by resource availability, buffer time, '
+            'and volunteer proximity. $volunteerSummary'
+          : '${volunteerSummary}'
+              '${top.hospitalName} is the best match for "$query" '
+              'with a triage score of ${top.score.toStringAsFixed(0)}/100.',
+      isFromAI: true,
       timestamp: DateTime.now(),
     );
   }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/hospital.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
+import '../utils/constants.dart';
 import '../utils/time_utils.dart';
 import '../widgets/ambulance_badge.dart';
 import '../widgets/app_header.dart';
@@ -16,6 +17,7 @@ import 'audit_log_screen.dart';
 import 'hospital_panel_screen.dart';
 import 'resource_transfer_screen.dart';
 import 'simulation_screen.dart';
+import 'volunteer_dashboard_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -78,18 +80,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           children: [
             AppHeader(
-              title: 'MediLink AI',
-              subtitle: 'Predictive resource orchestration',
-              trailing: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  state.authService.signOut();
-                },
-                child: Icon(
-                  Icons.logout,
-                  size: 18,
-                  color: AppColors.accent.withOpacity(0.5),
-                ),
+              title: 'MediLink AI Command Center',
+              subtitle: 'Unifying community data, identifying urgent needs, coordinating volunteers.',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildFreshnessPill(state),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      state.authService.signOut();
+                    },
+                    child: Icon(
+                      Icons.logout,
+                      size: 18,
+                      color: AppColors.accent.withOpacity(0.5),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -139,7 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Unable to connect to the hospital network. Please check your connection and try again.',
+              'Unable to connect to the community care network. Please check your connection and try again.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.accent,
@@ -234,6 +243,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (topPick != null && !state.isAnalysing)
           _buildRecommendationCard(state, topPick.hospitalId),
 
+        // System-wide metrics
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          child: _buildSystemMetrics(state),
+        ),
+
+        // Transfer recommendation box (visible when imbalance exists)
+        if (state.currentPlan != null && state.currentPlan!.hasActions)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: _buildTransferRecommendation(state),
+          ),
+
         // Sort controls + hospital list header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
@@ -268,6 +290,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCollapseAlert(Hospital hospital) {
     final color = TimeUtils.bufferTimeColor(hospital.criticalBufferHours);
+    String resourceName = 'critical resources';
+    if (hospital.bedBufferHours == hospital.criticalBufferHours) {
+      resourceName = 'beds';
+    } else if (hospital.oxygenBufferHours == hospital.criticalBufferHours) {
+      resourceName = 'oxygen supplies';
+    } else if (hospital.icuBufferHours == hospital.criticalBufferHours) {
+      resourceName = 'ICU beds';
+    } else if (hospital.ventilatorBufferHours == hospital.criticalBufferHours) {
+      resourceName = 'ventilators';
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -286,7 +319,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '⚠ ${hospital.name} will reach critical in '
+              '⚠ ${hospital.name} will run out of $resourceName in '
               '~${TimeUtils.formatBufferTime(hospital.criticalBufferHours)} '
               'at current consumption rate',
               style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
@@ -356,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 18),
           const Text(
-            'Predictive resource orchestration engine',
+            'Smart Resource Allocation Engine',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -365,7 +398,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Real-time monitoring with buffer-time prediction, shadow-load awareness, and AI-driven transfer recommendations.',
+            'Data-driven volunteer coordination with predictive routing, buffer-time analysis, shadow-load awareness, and AI-powered transfer recommendations.',
             style: TextStyle(
               color: AppColors.accent,
               fontSize: 13,
@@ -375,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              _smallInfoChip(Icons.local_hospital_outlined, '$total hospitals'),
+              _smallInfoChip(Icons.local_hospital_outlined, '$total nodes'),
               const SizedBox(width: 10),
               _smallInfoChip(Icons.timeline, 'Updated live'),
               const SizedBox(width: 10),
@@ -388,18 +421,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatsRow(int stable, int critical, int total) {
+    final staleFeedCount = _countStaleFeeds(context);
+    final transferCount = context.read<AppState>().totalTransfers;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _numericCard('Total', total.toString(), AppColors.primary,
+        _numericCard('Hospitals', total.toString(), AppColors.primary,
             Icons.local_hospital_outlined),
         _numericCard('Stable', stable.toString(), AppColors.success,
             Icons.check_circle_outline),
         _numericCard('Critical', critical.toString(), AppColors.danger,
             Icons.warning_amber_rounded),
+        _numericCard('Transfers', transferCount.toString(), AppColors.info,
+            Icons.swap_horiz_rounded),
+        _numericCard('Stale feeds', staleFeedCount.toString(), AppColors.warning,
+            Icons.wifi_off_rounded),
       ],
     );
+  }
+
+  int _countStaleFeeds(BuildContext context) {
+    final hospitals = context.read<AppState>().effectiveHospitals;
+    int stale = 0;
+    for (final h in hospitals) {
+      if (h.lastUpdated != null) {
+        final age = DateTime.now().difference(h.lastUpdated!);
+        if (age.inMinutes > 10) stale++;
+      }
+    }
+    return stale;
   }
 
   Widget _buildSearchSection(AppState state) {
@@ -681,7 +732,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       children: [
         const Text(
-          'HOSPITALS',
+          'HOSPITAL NETWORK',
           style: TextStyle(
             color: Color(0xFF6B7280),
             fontSize: 11,
@@ -697,7 +748,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
-            '${hospitals.length}',
+            '${hospitals.length} live facilities',
             style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 10),
           ),
         ),
@@ -847,6 +898,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontSize: 10,
                         ),
                       ),
+                    Text(
+                      '${hospital.city} · ${hospital.tier}',
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 10,
+                      ),
+                    ),
+                    Text(
+                      'Snapshot: ${hospital.beds} beds, ${hospital.oxygen} LPM oxygen',
+                      style: const TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 10,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1062,12 +1127,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Expanded(
             child: _navButton(
-              label: 'Hospital Panel',
-              icon: Icons.dashboard_customize_outlined,
-              color: AppColors.primary,
+              label: 'Volunteer Hub',
+              icon: Icons.people_alt,
+              color: AppColors.success,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const HospitalPanelScreen()),
+                MaterialPageRoute(builder: (_) => const VolunteerDashboardScreen()),
               ),
             ),
           ),
@@ -1114,6 +1179,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
           ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _navButton(
+              label: 'Node Panel',
+              icon: Icons.dashboard_customize_outlined,
+              color: AppColors.primary,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HospitalPanelScreen()),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1152,6 +1229,286 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Freshness pill ───────────────────────────────────────────────
+
+  Widget _buildFreshnessPill(AppState state) {
+    final hospitals = state.effectiveHospitals;
+    if (hospitals.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    DateTime? newest;
+    for (final h in hospitals) {
+      if (h.lastUpdated != null) {
+        if (newest == null || h.lastUpdated!.isAfter(newest)) {
+          newest = h.lastUpdated;
+        }
+      }
+    }
+
+    String label;
+    Color color;
+    if (newest == null) {
+      label = 'Live';
+      color = AppColors.success;
+    } else {
+      final age = DateTime.now().difference(newest);
+      if (age.inSeconds < 60) {
+        label = 'Live · updated ${age.inSeconds}s ago';
+        color = AppColors.success;
+      } else if (age.inMinutes < 5) {
+        label = 'Fresh · updated ${age.inMinutes}m ago';
+        color = AppColors.success;
+      } else {
+        label = 'Stale · updated ${age.inMinutes}m ago';
+        color = AppColors.warning;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── System-wide metrics ──────────────────────────────────────────
+
+  Widget _buildSystemMetrics(AppState state) {
+    final hospitals = state.effectiveHospitals;
+
+    final totalBeds = hospitals.fold(0, (s, h) => s + h.beds);
+    final totalOccupiedBeds = hospitals.fold(0, (s, h) => s + (AppConstants.maxBedCapacity - h.beds));
+    final totalIcu = hospitals.fold(0, (s, h) => s + h.icuBeds);
+    final totalOccupiedIcu = hospitals.fold(0, (s, h) => s + (AppConstants.maxIcuCapacity - h.icuBeds));
+
+    double avgOxygenBuffer = 0;
+    int oxygenCount = 0;
+    for (final h in hospitals) {
+      if (h.oxygenBufferHours < double.infinity) {
+        avgOxygenBuffer += h.oxygenBufferHours;
+        oxygenCount++;
+      }
+    }
+    final oxygenBufferAvg = oxygenCount > 0 ? avgOxygenBuffer / oxygenCount : 0.0;
+
+    final avgReadiness = hospitals.isNotEmpty
+        ? hospitals.fold(0.0, (s, h) => s + h.healthScore) / hospitals.length
+        : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'SYSTEM METRICS',
+          style: TextStyle(
+            color: Color(0xFF6B7280),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _systemMetricCard('Beds available', totalBeds.toString(),
+                '$totalOccupiedBeds occupied', AppColors.primary),
+            _systemMetricCard('ICU capacity', totalIcu.toString(),
+                '$totalOccupiedIcu occupied', AppColors.warning),
+            _systemMetricCard('Oxygen buffer', '${oxygenBufferAvg.toStringAsFixed(1)}h',
+                'Sustainable window', AppColors.info),
+            _systemMetricCard('Readiness avg', '${avgReadiness.toStringAsFixed(0)}%',
+                'System-wide', AppColors.success),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _systemMetricCard(
+      String label, String value, String detail, Color color) {
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Transfer recommendation box ──────────────────────────────────
+
+  Widget _buildTransferRecommendation(AppState state) {
+    final plan = state.currentPlan!;
+    final first = plan.validSuggestions.first;
+    final resourceLabel = first.resourceType.toUpperCase();
+    final urgency = first.urgencyScore > 5.0 ? 'Immediate' : 'High';
+    final urgencyColor = urgency == 'Immediate' ? AppColors.danger : AppColors.warning;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A1628),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        border: Border.all(color: urgencyColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Transfer recommendation: ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  resourceLabel,
+                  style: const TextStyle(
+                    color: AppColors.info,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: urgencyColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  urgency,
+                  style: TextStyle(
+                    color: urgencyColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.route, size: 14, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${first.fromHospitalName} → ${first.toHospitalName} · ${first.transferAmount} units',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            first.reason,
+            style: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: state.isTransferring
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ResourceTransferScreen(),
+                        ),
+                      );
+                    },
+              child: const Text(
+                'Initiate Transfer',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

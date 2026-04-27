@@ -80,8 +80,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           children: [
             AppHeader(
-              title: 'MediLink AI Command Center',
-              subtitle: 'Unifying community data, identifying urgent needs, coordinating volunteers.',
+              title: 'Operations Dashboard',
+              subtitle: 'Hospital/resource monitoring, AI transfers, and system health',
+              leading: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: const Icon(Icons.arrow_back_ios_new,
+                      size: 14, color: Colors.white60),
+                ),
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

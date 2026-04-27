@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'src/providers/app_providers.dart';
 import 'src/screens/auth_screen.dart';
-import 'src/screens/dashboard_screen.dart';
+import 'src/screens/role_selector_screen.dart';
 import 'src/screens/splash_screen.dart';
 import 'src/services/auth_service.dart';
 import 'src/theme/app_theme.dart';
@@ -72,7 +72,7 @@ class _AppGateState extends State<_AppGate> {
         }
 
         if (snapshot.data != null || isMockMode) {
-          return const DashboardScreen();
+          return const RoleSelectorScreen();
         }
 
         return AuthScreen(
